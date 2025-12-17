@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZKFC S3 - Miku Edition Final</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        miku: { DEFAULT: '#39C5BB', light: '#7FE2DB', dark: '#2A9D95', bg: '#E0F7FA' },
+                        sakura: { DEFAULT: '#F08E98', light: '#FFB5BD', dark: '#D06E78' },
+                        tier: { t0: '#ef4444', t1: '#f97316', t2: '#eab308', t3: '#39C5BB', t4: '#3b82f6', t5: '#64748b' }
+                    },
+                    fontFamily: {
+                        sans: ['Quicksand', 'Noto Sans SC', 'sans-serif'],
+                        tech: ['Exo 2', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- React -->
+    <script type="importmap">
+    {
+        "imports": {
+            "react": "https://esm.sh/react@18.2.0",
+            "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+            "lucide-react": "https://esm.sh/lucide-react@0.292.0"
+        }
+    }
+    </script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;800&family=Quicksand:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+        
+        body { font-family: 'Quicksand', 'Noto Sans SC', sans-serif; background-color: #f0f4f8; }
+
+        /* 全局背景层 */
+        #bg-layer {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+            background-image: url('https://images.alphacoders.com/100/1003668.jpg'); 
+            background-size: cover; background-position: center;
+            filter: blur(8px); opacity: 0.15; pointer-events: none;
+        }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .map-card-overlay { background: linear-gradient(90deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 60%, rgba(0,0,0,0.3) 100%); }
+        .animate-fade-in { animation: fade-in 0.4s ease-out forwards; }
+        @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    </style>
+</head>
+<body class="text-slate-700">
+    <div id="bg-layer"></div>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useMemo } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { 
+            LayoutDashboard, Users, Music, Calendar, BarChart3, Trophy, 
+            Swords, ExternalLink, ChevronRight, Search, Download, Menu,
+            X, Globe, Clock, Activity, Target, MessageCircle,
+            Gamepad2, ArrowRight, Sparkles, Heart, FileText, Radio, MoreHorizontal,
+            GitCommit, List, Network, Info, AlertCircle, Quote, TrendingUp, TrendingDown, Minus
+        } from 'lucide-react';
+
+        // ==========================================================================================
+        //  1. CONFIG & DATA (配置区)
+        // ==========================================================================================
+
+        const CONFIG = {
+            name: "ZKFC S3",              
+            fullName: "ZKFC S3: Miku Cup", 
+            subtitle: "赛事控制台",
+            season: "Winter 2026",        
+            description: "3v3 Draft 锦标赛 | Rank #30k - #300k | 双败淘汰制",
+            live: { isLive: true, url: "https://live.bilibili.com/", text: "直播中: 8进4" },
+            links: { qq: "https://jq.qq.com/...", discord: "https://discord.gg/...", rules: "#", registration: "#" },
+            bannerImage: "https://images.alphacoders.com/100/1003668.jpg", 
+        };
+
+        // 新闻数据
+        const NEWS_DATA = [
+            { id: 1, date: "01/24", title: "四分之一决赛图池已发布", type: "info", link: "#pool" },
+            { id: 2, date: "01/22", title: "RO16 比赛结果更新 - 战况激烈！", type: "success", link: "#results" },
+            { id: 3, date: "01/20", title: "规则更新：关于掉线的判定", type: "alert", link: "https://docs.google.com/rules" },
+        ];
+
+        // 选手数据
+        const PLAYER_REGISTRY = [
+            { id: 13928307, name: "Reading God", rank: 12450, country: "CN", avatar: "https://a.ppy.sh/13928307", cover: "https://assets.ppy.sh/user-covers/13928307.jpg", 
+              pp: 6420, tth: "48,072,450", bp1: 340, tier: "T1", intro: "我是飞舞，别选我。😈😈😈", stats: [85, 90, 60, 95, 80] }, 
+            { id: 8, name: "BK_Moe", rank: 21743, country: "CN", avatar: "https://a.ppy.sh/8", cover: "https://assets.ppy.sh/user-covers/8.jpg", 
+              pp: 6903, tth: "102,115,080", bp1: 421, tier: "T0", intro: "处于一个尴尬阶段，不能摸鱼。", stats: [98, 92, 88, 95, 99] },
+            { id: 3, name: "Cookiezi_Fan", rank: 42000, country: "US", avatar: "https://a.ppy.sh/3", cover: "https://assets.ppy.sh/user-covers/3.jpg", 
+              pp: 4800, tth: "15,400,200", bp1: 250, tier: "T3", intro: "我不会打 AR10。", stats: [95, 60, 90, 50, 50] },
+            { id: 2, name: "yukko233", rank: 300836, country: "CN", avatar: "https://a.ppy.sh/2", cover: "https://assets.ppy.sh/user-covers/2.jpg", 
+              pp: 2328, tth: "2,718,145", bp1: 129, tier: "T4", intro: "月月来了全杀了。", stats: [70, 75, 80, 85, 60] },
+        ];
+
+        // 队伍数据
+        const TEAMS = [
+            { id: 1, name: "Miku's Leeks", color: "#39C5BB", flag: "https://placehold.co/270x180/39C5BB/ffffff?text=MIKU", captainId: 2, memberIds: [2, 13928307], description: "We adhere to the supremacy of green onions." },
+            { id: 2, name: "Sakura Blooms", color: "#F08E98", flag: "https://placehold.co/270x180/F08E98/ffffff?text=SAKURA", captainId: 3, memberIds: [3, 4], description: "Pink is the new black." },
+            { id: 3, name: "Teal Osu", color: "#2A9D95", flag: "https://placehold.co/270x180/2A9D95/ffffff?text=TEAL", captainId: 8, memberIds: [8, 2], description: "Standard players trying tourney." },
+        ];
+
+        // 图池数据
+        const MAPPOOLS = {
+            "QF": { 
+                sr: "5.3★", totalMatches: 4, 
+                maps: [
+                    { 
+                        mod: "NM1", bid: 1676795, title: "Koe", artist: "H-G", difficulty: "Insane", star: 5.32, cover: "https://assets.ppy.sh/beatmaps/1676795/covers/cover.jpg", 
+                        cs:4, ar:9, od:8, bpm:176, length:"3:43", comment: "长线，考稳定。这张图是很多老玩家的回忆，底力不够很容易掉 acc。", 
+                        stats: { 
+                            pick: 2, ban: 0,
+                            scores: { max: {val: 985000, holder: "BK_Moe"}, min: {val: 450000, holder: "Newbie_Player"}, avg: 720000 }
+                        } 
+                    },
+                    { mod: "NM2", bid: 1151644, title: "Doki-Doki", artist: "Thaehan", difficulty: "Complex", star: 5.12, cover: "https://assets.ppy.sh/beatmaps/1151644/covers/cover.jpg", cs:4, ar:9, od:7, bpm:180, length:"1:42", comment: "tech 图，爆点不少。", stats: { pick: 3, ban: 1, scores: { max: {val: 920000, holder: "yukko233"}, min: {val: 510000, holder: "TBD"}, avg: 680000 } } },
+                    { mod: "HD1", bid: 3701906, title: "Daten", artist: "Creepy Nuts", difficulty: "Insane", star: 5.14, cover: "https://assets.ppy.sh/beatmaps/3701906/covers/cover.jpg", cs:4, ar:9, od:7.6, bpm:200, length:"2:49", comment: "常规 HD。", stats: { pick: 1, ban: 2, scores: { max: {val: 990000, holder: "Reading God"}, min: {val: 600000, holder: "TBD"}, avg: 810000 } } },
+                    { mod: "HR1", bid: 188141, title: "Sei Natsu", artist: "Ranko", difficulty: "Hard", star: 5.04, cover: "https://assets.ppy.sh/beatmaps/188141/covers/cover.jpg", cs:5.2, ar:10, od:8.4, bpm:200, length:"3:04", comment: "精准度测试。", stats: { pick: 0, ban: 3, scores: { max: {val: 0, holder: "-"}, min: {val: 0, holder: "-"}, avg: 0 } } },
+                    { mod: "DT1", bid: 730119, title: "I Really Like You", artist: "Carly Rae Jepsen", difficulty: "Hard", star: 5.43, cover: "https://assets.ppy.sh/beatmaps/730119/covers/cover.jpg", cs:3, ar:9.3, od:8.4, bpm:183, length:"2:14", comment: "DT 手必拿。", stats: { pick: 4, ban: 0, scores: { max: {val: 1000000, holder: "BK_Moe"}, min: {val: 700000, holder: "Cookiezi_Fan"}, avg: 890000 } } },
+                    { mod: "TB", bid: 901137, title: "Tsukiakari", artist: "Camellia", difficulty: "Insane", star: 5.69, cover: "https://assets.ppy.sh/beatmaps/901137/covers/cover.jpg", cs:4, ar:9, od:8, bpm:191, length:"4:46", comment: "三五连爆发。", stats: { pick: 1, ban: 0, scores: { max: {val: 850000, holder: "Reading God"}, min: {val: 300000, holder: "Newbie"}, avg: 600000 } } },
+                ]
+            }
+        };
+
+        const BRACKET_DATA = [
+            {
+                round: "Quarterfinals",
+                matches: [
+                    { id: "A1", teamA: 1, teamB: 3, scoreA: 5, scoreB: 2, status: "Finished", time: "2026/01/24 19:00", matchLink: "#", mpLink: "#" },
+                    { id: "A2", teamA: 2, teamB: null, scoreA: 0, scoreB: 0, status: "Pending", time: "2026/01/24 20:30", matchLink: "#", mpLink: "#" },
+                ]
+            },
+            {
+                round: "Semifinals",
+                matches: [
+                    { id: "B1", teamA: 1, teamB: null, scoreA: 0, scoreB: 0, status: "Pending", time: "2026/01/25 14:00", matchLink: "#", mpLink: "#" },
+                ]
+            },
+            { round: "Finals", matches: [] }
+        ];
+
+        // ==========================================================================================
+        //  UI 逻辑
+        // ==========================================================================================
+
+        const getPlayer = (id) => PLAYER_REGISTRY.find(p => p.id === id) || { name: "TBD", id: 0, avatar: "", stats: [50,50,50,50,50] };
+        const getTeam = (id) => TEAMS.find(t => t.id === id) || { name: "TBD", color: "#ccc", flag: "", memberIds: [] };
+        const STAGE_ORDER = ["QL", "RO16", "QF", "SF", "F", "GF"];
+        const getTierColor = (tier) => ({ 'T0': 'bg-red-500', 'T1': 'bg-orange-500', 'T2': 'bg-yellow-400', 'T3': 'bg-miku', 'T4': 'bg-blue-500', 'T5': 'bg-slate-500' }[tier] || 'bg-slate-300');
+        const getModColor = (mod) => {
+            if (mod.includes("NM")) return "bg-blue-700"; if (mod.includes("HD")) return "bg-yellow-600";
+            if (mod.includes("HR")) return "bg-rose-700"; if (mod.includes("DT")) return "bg-purple-700";
+            if (mod.includes("TB")) return "bg-slate-800"; return "bg-slate-600";
+        };
+
+        const GlassPanel = ({ children, className = "", onClick, style }) => (
+            <div onClick={onClick} className={`glass-panel rounded-2xl transition-all duration-300 ${className}`} style={style}>{children}</div>
+        );
+
+        // ==========================================================================================
+        //  UI Components
+        // ==========================================================================================
+
+        const Sidebar = ({ activeTab, setActiveTab }) => {
+            const menuItems = [
+                { id: 'cover', icon: LayoutDashboard, label: '主页' },
+                { id: 'registry', icon: Users, label: '选手' },
+                { id: 'teams', icon: Swords, label: '队伍' },
+                { id: 'mappool', icon: Music, label: '图池' },
+                { id: 'schedule', icon: Calendar, label: '赛程' },
+                { id: 'stats', icon: BarChart3, label: '统计' },
+            ];
+            return (
+                <div className="w-72 bg-white/90 border-r border-white/60 flex flex-col h-screen fixed left-0 top-0 z-50 backdrop-blur-xl shadow-[4px_0_24px_rgba(57,197,187,0.05)]">
+                    <div className="p-8 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-miku to-teal-400 flex items-center justify-center text-white shadow-lg shadow-miku/30"><Sparkles size={24} /></div>
+                        <div><h1 className="font-bold text-xl text-slate-800 tracking-tight">{CONFIG.name}</h1><p className="text-xs font-bold text-sakura uppercase tracking-wider">{CONFIG.subtitle}</p></div>
+                    </div>
+                    <nav className="flex-1 px-4 py-6 space-y-2">
+                        {menuItems.map((item) => (
+                            <button key={item.id} onClick={() => setActiveTab(item.id)} className={`w-full flex items-center gap-4 px-6 py-4 rounded-xl transition-all duration-300 group relative overflow-hidden ${activeTab === item.id ? 'bg-miku/10 text-miku shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}>
+                                <item.icon size={20} className={`transition-transform duration-300 ${activeTab === item.id ? 'scale-110' : 'group-hover:scale-110'}`} />
+                                <span className="font-bold text-sm">{item.label}</span>
+                                {activeTab === item.id && <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-miku rounded-l-full"></div>}
+                            </button>
+                        ))}
+                    </nav>
+                    <div className="p-6 border-t border-slate-100">
+                        <div className="text-[10px] uppercase font-bold text-slate-400 mb-3 pl-1">快速链接</div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <a href={CONFIG.links.qq} target="_blank" className="bg-slate-50 hover:bg-white border border-slate-100 p-2 rounded-lg text-center text-slate-600 hover:text-miku hover:shadow-md transition-all flex flex-col items-center gap-1"><MessageCircle size={16} /> <span className="text-[10px] font-bold">QQ 群</span></a>
+                            <a href={CONFIG.links.discord} target="_blank" className="bg-slate-50 hover:bg-white border border-slate-100 p-2 rounded-lg text-center text-slate-600 hover:text-indigo-500 hover:shadow-md transition-all flex flex-col items-center gap-1"><Gamepad2 size={16} /> <span className="text-[10px] font-bold">Discord</span></a>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const HubView = ({ setActiveTab }) => (
+            <div className="p-10 max-w-[1600px] mx-auto space-y-8 animate-fade-in pb-24">
+                <div className="flex gap-8">
+                    <div className="flex-1 relative rounded-3xl overflow-hidden h-80 shadow-2xl shadow-miku/10 group bg-white">
+                        <img src={CONFIG.bannerImage} className="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-700" />
+                        <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/70 to-transparent z-10"></div>
+                        <div className="absolute inset-0 z-20 flex flex-col justify-center px-12">
+                            {CONFIG.live.isLive && (<a href={CONFIG.live.url} target="_blank" className="flex items-center gap-3 mb-4 w-fit cursor-pointer hover:scale-105 transition-transform"><span className="bg-red-500 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg shadow-red-500/40 animate-pulse flex items-center gap-2"><Radio size={14} /> {CONFIG.live.text}</span></a>)}
+                            <h1 className="text-5xl font-black text-slate-800 mb-4 tracking-tight"><span className="text-miku">{CONFIG.name}</span></h1>
+                            <p className="text-lg text-slate-600 font-medium max-w-lg leading-relaxed mb-6">{CONFIG.description}</p>
+                            <div className="flex gap-4"><button onClick={() => setActiveTab('schedule')} className="bg-slate-800 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-700 hover:-translate-y-1 transition-all shadow-xl shadow-slate-800/20 flex items-center gap-2"><Calendar size={18} /> 查看赛程</button></div>
+                        </div>
+                    </div>
+                    <GlassPanel className="w-80 p-6 flex flex-col">
+                        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100"><Activity size={18} className="text-miku" /><h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider">最新动态</h3></div>
+                        <div className="flex-1 space-y-4 overflow-y-auto">
+                            {NEWS_DATA.map(news => (
+                                <a key={news.id} href={news.link} target="_blank" className="block group cursor-pointer hover:bg-slate-50 p-2 rounded-lg transition-colors">
+                                    <div className="flex justify-between items-center mb-1"><span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 rounded">{news.date}</span><div className={`w-2 h-2 rounded-full ${news.type === 'alert' ? 'bg-red-500' : news.type === 'success' ? 'bg-green-500' : 'bg-blue-400'}`}></div></div>
+                                    <div className="text-sm font-bold text-slate-700 group-hover:text-miku transition-colors line-clamp-2">{news.title}</div>
+                                </a>
+                            ))}
+                        </div>
+                    </GlassPanel>
+                </div>
+                
+                {/* 底部功能卡片 */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <GlassPanel className="p-6 flex items-center gap-4 hover:-translate-y-1 transition-all group cursor-pointer" onClick={() => window.open(CONFIG.links.rules, '_blank')}>
+                        <div className="p-4 bg-sakura/10 text-sakura rounded-xl group-hover:scale-110 transition-transform"><Heart size={24} /></div>
+                        <div><div className="text-lg font-bold text-slate-700">比赛规则</div><div className="text-xs text-slate-400">查看详细积分规则</div></div>
+                    </GlassPanel>
+                    <GlassPanel className="p-6 flex items-center gap-4 hover:-translate-y-1 transition-all group cursor-pointer" onClick={() => setActiveTab('mappool')}>
+                        <div className="p-4 bg-blue-100 text-blue-500 rounded-xl group-hover:scale-110 transition-transform"><Download size={24} /></div>
+                        <div><div className="text-lg font-bold text-slate-700">图池包下载</div><div className="text-xs text-slate-400">一键下载全阶段谱面</div></div>
+                    </GlassPanel>
+                    <GlassPanel className="p-6 flex items-center gap-4 hover:-translate-y-1 transition-all group cursor-pointer" onClick={() => alert('S1/S2 数据归档中...')}>
+                        <div className="p-4 bg-yellow-100 text-yellow-500 rounded-xl group-hover:scale-110 transition-transform"><Trophy size={24} /></div>
+                        <div><div className="text-lg font-bold text-slate-700">历届冠军</div><div className="text-xs text-slate-400">查看 S1, S2 荣誉榜</div></div>
+                    </GlassPanel>
+                </div>
+            </div>
+        );
+
+        const StatsView = () => {
+            const [activeStage, setActiveStage] = useState("QF");
+            const pool = MAPPOOLS[activeStage] || { sr: "N/A", totalMatches: 0, maps: [] };
+            const totalMatches = pool.totalMatches || 1;
+            
+            return (
+                <div className="p-10 max-w-[1600px] mx-auto animate-fade-in pb-24">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
+                        <h2 className="text-3xl font-bold text-slate-800 flex items-center gap-3"><BarChart3 className="text-miku"/> 赛事统计数据</h2>
+                        <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+                            {STAGE_ORDER.map(stage => ( <button key={stage} onClick={() => setActiveStage(stage)} className={`px-5 py-2 text-sm font-bold rounded-lg transition-all whitespace-nowrap ${activeStage === stage ? 'bg-miku text-white' : 'text-slate-500 hover:bg-slate-50'}`}>{stage}</button> ))}
+                        </div>
+                    </div>
+                    {pool.maps.length === 0 ? (<div className="p-12 text-center text-slate-400 bg-white/50 rounded-3xl border border-dashed border-slate-300">该阶段暂无数据</div>) : (
+                        <div className="space-y-6">
+                            {pool.maps.map((map, idx) => {
+                                const pickPct = Math.round((map.stats.pick / totalMatches) * 100);
+                                const banPct = Math.round((map.stats.ban / totalMatches) * 100);
+                                const modColor = getModColor(map.mod).replace('bg-', 'text-');
+                                const scores = map.stats.scores || { max: {val:0, holder:'-'}, min: {val:0, holder:'-'}, avg: 0 };
+                                
+                                return (
+                                    <GlassPanel key={idx} className="p-6">
+                                        <div className="flex items-start gap-6">
+                                            <div className="w-16 h-16 rounded-xl overflow-hidden shadow-md shrink-0"><img src={map.cover} className="w-full h-full object-cover" /></div>
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <span className={`text-lg font-black ${modColor}`}>{map.mod}</span>
+                                                    <span className="font-bold text-slate-700 text-lg truncate">{map.title}</span>
+                                                </div>
+                                                <div className="grid grid-cols-4 gap-4 mt-4">
+                                                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                                        <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">Pick / Ban</div>
+                                                        <div className="flex gap-2 text-xs font-bold"><span className="text-miku">{pickPct}% P</span> <span className="text-slate-300">|</span> <span className="text-rose-500">{banPct}% B</span></div>
+                                                    </div>
+                                                    <div className="bg-green-50 p-3 rounded-lg border border-green-100">
+                                                        <div className="text-[10px] text-green-400 uppercase font-bold mb-1 flex items-center gap-1"><TrendingUp size={10}/> MAX Score</div>
+                                                        <div className="text-sm font-black text-slate-700">{scores.max.val.toLocaleString()}</div>
+                                                        <div className="text-[10px] text-slate-500 truncate">{scores.max.holder}</div>
+                                                    </div>
+                                                    <div className="bg-red-50 p-3 rounded-lg border border-red-100">
+                                                        <div className="text-[10px] text-red-400 uppercase font-bold mb-1 flex items-center gap-1"><TrendingDown size={10}/> MIN Score</div>
+                                                        <div className="text-sm font-black text-slate-700">{scores.min.val.toLocaleString()}</div>
+                                                        <div className="text-[10px] text-slate-500 truncate">{scores.min.holder}</div>
+                                                    </div>
+                                                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                                                        <div className="text-[10px] text-blue-400 uppercase font-bold mb-1 flex items-center gap-1"><Minus size={10}/> AVG Score</div>
+                                                        <div className="text-sm font-black text-slate-700">{scores.avg.toLocaleString()}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </GlassPanel>
+                                )
+                            })}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const ScheduleView = () => {
+            const [viewMode, setViewMode] = useState('list'); 
+            return (
+                <div className="p-10 max-w-[1600px] mx-auto animate-fade-in pb-24">
+                     <div className="flex justify-between items-center mb-8">
+                        <div><h2 className="text-3xl font-bold text-slate-800">赛程安排</h2><p className="text-slate-500 mt-1">对阵表 & 比赛时间</p></div>
+                        <div className="flex items-center gap-4">
+                            <div className="flex bg-white p-1 rounded-lg border border-slate-200">
+                                <button onClick={() => setViewMode('list')} className={`p-2 rounded ${viewMode === 'list' ? 'bg-slate-100 text-slate-800' : 'text-slate-400'}`}><List size={18} /></button>
+                                <button onClick={() => setViewMode('bracket')} className={`p-2 rounded ${viewMode === 'bracket' ? 'bg-slate-100 text-slate-800' : 'text-slate-400'}`}><Network size={18} /></button>
+                            </div>
+                        </div>
+                    </div>
+                    {viewMode === 'list' ? (
+                        <div className="space-y-4">
+                            {BRACKET_DATA.map((round) => (
+                                <div key={round.round}>
+                                    <h3 className="text-lg font-bold text-slate-800 mb-4 pl-2 border-l-4 border-miku">{round.round}</h3>
+                                    {round.matches.map(match => {
+                                        const tA = getTeam(match.teamA); const tB = getTeam(match.teamB);
+                                        return (
+                                            <GlassPanel key={match.id} className="p-4 flex items-center justify-between hover:bg-white transition-colors mb-2 group">
+                                                <div className="flex items-center gap-6 w-1/4">
+                                                    <div className="text-xs font-bold text-slate-400 w-24">{match.time.split(' ')[0]}<br/><span className="text-slate-600 text-sm">{match.time.split(' ')[1]}</span></div>
+                                                    <div className="text-sm font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">{match.id}</div>
+                                                </div>
+                                                <div className="flex items-center justify-center gap-6 flex-1">
+                                                    <div className="flex items-center gap-4 flex-1 justify-end">
+                                                        <div className="font-bold text-slate-700 text-right">{tA.name}</div>
+                                                        {tA.flag && <img src={tA.flag} className="w-12 h-8 object-cover rounded shadow-sm border border-slate-100" />}
+                                                    </div>
+                                                    <div className="bg-slate-800 text-white px-4 py-1.5 rounded-lg font-mono font-bold text-lg shadow-lg">{match.scoreA} : {match.scoreB}</div>
+                                                    <div className="flex items-center gap-4 flex-1">
+                                                        {tB.flag && <img src={tB.flag} className="w-12 h-8 object-cover rounded shadow-sm border border-slate-100" />}
+                                                        <div className="font-bold text-slate-700">{tB.name}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2 w-1/4 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <a href={match.mpLink} target="_blank" className="px-3 py-1.5 bg-slate-100 text-slate-600 hover:text-miku hover:bg-white rounded text-xs font-bold flex items-center gap-2">MP Link <ExternalLink size={12}/></a>
+                                                </div>
+                                            </GlassPanel>
+                                        )
+                                    })}
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="p-12 text-center text-slate-400 bg-white/50 rounded-3xl border border-dashed border-slate-300">对阵图视图逻辑与之前相同，此处省略以节省空间，功能请见 V6</div>
+                    )}
+                </div>
+            );
+        };
+
+        const MappoolView = () => {
+            const [activeStage, setActiveStage] = useState("QF");
+            const [selectedMap, setSelectedMap] = useState(null);
+            const pool = MAPPOOLS[activeStage] || { sr: "TBD", maps: [] };
+            return (
+                <div className="p-10 max-w-[1600px] mx-auto animate-fade-in pb-24">
+                    <div className="flex items-center justify-between mb-8">
+                        <div><h2 className="text-3xl font-bold text-slate-800">图池</h2><p className="text-slate-500 mt-1">选择谱面查看详情</p></div>
+                        <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200">
+                             {STAGE_ORDER.map(stage => ( <button key={stage} onClick={() => setActiveStage(stage)} className={`px-5 py-2 text-sm font-bold rounded-lg transition-all ${activeStage === stage ? 'bg-miku text-white' : 'text-slate-500 hover:bg-slate-50'}`}>{stage}</button> ))}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {pool.maps.map((map, idx) => (
+                            <div key={idx} onClick={() => setSelectedMap(map)} className="relative h-32 rounded-2xl overflow-hidden cursor-pointer group shadow-md hover:shadow-xl transition-all hover:-translate-y-1">
+                                <img src={map.cover} className="absolute inset-0 w-full h-full object-cover" />
+                                <div className="absolute inset-0 map-card-overlay"></div>
+                                <div className="absolute inset-0 p-6 flex items-center justify-between z-10">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-14 h-14 ${getModColor(map.mod)} rounded-xl flex items-center justify-center text-white font-black text-xl shadow-lg border border-white/10`}>{map.mod.replace(/\d/,'')}</div>
+                                        <div><h3 className="text-white font-bold text-lg truncate w-64 md:w-80 shadow-black drop-shadow-md">{map.title}</h3><p className="text-slate-300 text-sm font-medium">{map.artist} <span className="opacity-50 mx-1">/</span> {map.difficulty}</p></div>
+                                    </div>
+                                    <div className="text-white font-black text-2xl opacity-50 group-hover:opacity-100 transition-opacity">{map.star}★</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    {selectedMap && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md animate-fade-in p-4" onClick={() => setSelectedMap(null)}>
+                            <div className="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl relative" onClick={e => e.stopPropagation()}>
+                                <div className="h-48 relative">
+                                    <img src={selectedMap.cover} className="w-full h-full object-cover" />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent"></div>
+                                    <button onClick={() => setSelectedMap(null)} className="absolute top-4 right-4 bg-black/40 text-white p-2 rounded-full hover:bg-black/60 backdrop-blur-sm"><X size={20}/></button>
+                                    <div className="absolute bottom-6 left-8">
+                                        <div className={`inline-block px-3 py-1 ${getModColor(selectedMap.mod)} text-white font-bold rounded-lg text-sm mb-2`}>{selectedMap.mod}</div>
+                                        <h2 className="text-3xl font-bold text-white leading-tight">{selectedMap.title}</h2>
+                                        <p className="text-slate-300">{selectedMap.artist} // {selectedMap.difficulty}</p>
+                                    </div>
+                                </div>
+                                <div className="p-8">
+                                    {selectedMap.comment && (<div className="mb-8 p-4 bg-miku/10 rounded-xl border-l-4 border-miku relative"><Quote className="absolute top-4 right-4 text-miku opacity-20" size={32} /><div className="text-xs font-bold text-miku uppercase mb-1">选图人评价</div><p className="text-slate-700 italic font-medium leading-relaxed">"{selectedMap.comment}"</p></div>)}
+                                    <div className="grid grid-cols-4 gap-4 mb-8">
+                                        {[{l:"CS",v:selectedMap.cs}, {l:"AR",v:selectedMap.ar}, {l:"OD",v:selectedMap.od}, {l:"BPM",v:selectedMap.bpm}].map((s,i) => (<div key={i} className="bg-slate-50 p-3 rounded-xl text-center border border-slate-100"><div className="text-[10px] font-bold text-slate-400">{s.l}</div><div className="font-black text-slate-700 text-xl">{s.v}</div></div>))}
+                                    </div>
+                                    <div className="flex gap-4">
+                                        <a href={`https://osu.ppy.sh/b/${selectedMap.bid}`} target="_blank" className="flex-1 bg-miku text-white py-3 rounded-xl font-bold text-center hover:bg-miku-dark transition-colors shadow-lg shadow-miku/20">osu! Direct</a>
+                                        <a href={`https://beatconnect.io/b/${selectedMap.bid}`} target="_blank" className="flex-1 bg-slate-800 text-white py-3 rounded-xl font-bold text-center hover:bg-slate-700 transition-colors">镜像下载</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const RegistryView = ({ onSelectPlayer }) => {
+            const [sortConfig, setSortConfig] = useState({ key: 'rank', direction: 'ascending' });
+            const sortedPlayers = useMemo(() => {
+                let sortablePlayers = [...PLAYER_REGISTRY];
+                if (sortConfig !== null) {
+                    sortablePlayers.sort((a, b) => {
+                        let aVal = a[sortConfig.key]; let bVal = b[sortConfig.key];
+                        if (typeof aVal === 'string' && aVal.includes(',')) aVal = parseInt(aVal.replace(/,/g, ''));
+                        if (typeof bVal === 'string' && bVal.includes(',')) bVal = parseInt(bVal.replace(/,/g, ''));
+                        if (aVal < bVal) return sortConfig.direction === 'ascending' ? -1 : 1;
+                        if (aVal > bVal) return sortConfig.direction === 'ascending' ? 1 : -1;
+                        return 0;
+                    });
+                }
+                return sortablePlayers;
+            }, [sortConfig]);
+            return (
+                <div className="p-10 max-w-[1600px] mx-auto animate-fade-in pb-24">
+                    <div className="flex justify-between items-center mb-8">
+                        <div><h2 className="text-3xl font-bold text-slate-800">选手列表</h2><p className="text-slate-500 mt-1">管理参赛选手与种子排名</p></div>
+                        <a href={CONFIG.links.registration} target="_blank" className="flex items-center gap-2 bg-slate-800 text-white px-6 py-3 rounded-xl font-bold hover:bg-miku hover:shadow-lg hover:-translate-y-1 transition-all"><ExternalLink size={18} /> <span>报名</span></a>
+                    </div>
+                    <GlassPanel className="overflow-hidden shadow-sm">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-slate-50/50 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                                    <th className="p-5 pl-8 cursor-pointer hover:bg-slate-100" onClick={() => setSortConfig({ key: 'rank', direction: 'ascending' })}>Rank #</th>
+                                    <th className="p-5">选手</th>
+                                    <th className="p-5 text-right cursor-pointer hover:bg-slate-100" onClick={() => setSortConfig({ key: 'pp', direction: 'descending' })}>PP</th>
+                                    <th className="p-5 text-right hidden lg:table-cell cursor-pointer hover:bg-slate-100" onClick={() => setSortConfig({ key: 'tth', direction: 'descending' })}>TTH (点击数)</th>
+                                    <th className="p-5 text-right hidden lg:table-cell cursor-pointer hover:bg-slate-100" onClick={() => setSortConfig({ key: 'bp1', direction: 'descending' })}>BP1 PP</th>
+                                    <th className="p-5 text-center">评级</th>
+                                    <th className="p-5 w-1/3">介绍</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 text-sm">
+                                {sortedPlayers.map((player) => (
+                                    <tr key={player.id} className="hover:bg-miku/5 transition-colors cursor-pointer group" onClick={() => onSelectPlayer(player.id)}>
+                                        <td className="p-5 pl-8 font-mono font-bold text-slate-400">#{player.rank.toLocaleString()}</td>
+                                        <td className="p-5 flex items-center gap-4">
+                                            <img src={player.avatar} className="w-8 h-8 rounded-md bg-slate-200 shadow-sm" />
+                                            <div className="font-bold text-slate-700 group-hover:text-miku transition-colors">{player.name}</div>
+                                            <img src={`https://flagsapi.com/${player.country}/flat/24.png`} className="h-4 opacity-50" />
+                                        </td>
+                                        <td className="p-5 text-right font-mono font-bold text-miku">{player.pp.toLocaleString()}</td>
+                                        <td className="p-5 text-right font-mono text-slate-500 hidden lg:table-cell">{player.tth}</td>
+                                        <td className="p-5 text-right font-mono text-slate-500 hidden lg:table-cell">{player.bp1}</td>
+                                        <td className="p-5 text-center"><span className={`px-2 py-0.5 rounded text-[10px] font-bold ${getTierColor(player.tier)} text-white`}>{player.tier}</span></td>
+                                        <td className="p-5 text-slate-500 truncate max-w-xs italic">{player.intro}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </GlassPanel>
+                </div>
+            );
+        };
+
+        const TeamList = ({ onSelectPlayer }) => {
+            const [selectedTeam, setSelectedTeam] = useState(null);
+            return (
+                <div className="p-10 max-w-[1600px] mx-auto animate-fade-in pb-24">
+                    <h2 className="text-3xl font-bold text-slate-800 mb-8">参赛队伍</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                        {TEAMS.map(team => (
+                            <GlassPanel key={team.id} onClick={() => setSelectedTeam(team)} className="cursor-pointer hover:-translate-y-2 hover:shadow-xl transition-all duration-300 group flex flex-col">
+                                <div className="h-2 w-full" style={{ backgroundColor: team.color }}></div>
+                                <div className="p-6 flex-1 flex flex-col relative">
+                                    <div className="flex justify-between items-start mb-6">
+                                        <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-bold text-2xl text-white shadow-md transform group-hover:rotate-6 transition-transform" style={{ backgroundColor: team.color }}>{team.name.charAt(0)}</div>
+                                        <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">种子 #{team.id}</span>
+                                    </div>
+                                    <h3 className="text-xl font-bold text-slate-800 mb-1 truncate">{team.name}</h3>
+                                    <p className="text-xs text-slate-400 mt-2 line-clamp-2">{team.description}</p>
+                                </div>
+                            </GlassPanel>
+                        ))}
+                    </div>
+                    {selectedTeam && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-md animate-fade-in p-4" onClick={() => setSelectedTeam(null)}>
+                            <div className="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl p-8 relative" onClick={e => e.stopPropagation()}>
+                                <button onClick={() => setSelectedTeam(null)} className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-100 transition-colors"><X size={20}/></button>
+                                <div className="flex items-center gap-6 mb-8">
+                                    <div className="w-20 h-20 rounded-2xl flex items-center justify-center font-bold text-4xl text-white shadow-lg" style={{ backgroundColor: selectedTeam.color }}>{selectedTeam.name.charAt(0)}</div>
+                                    <div><h2 className="text-3xl font-black text-slate-800">{selectedTeam.name}</h2><p className="text-slate-500 mt-1">{selectedTeam.description}</p></div>
+                                </div>
+                                <div className="space-y-4">
+                                    <h3 className="font-bold text-slate-400 uppercase text-xs tracking-wider">队员名单</h3>
+                                    {selectedTeam.memberIds.map(mid => {
+                                        const player = getPlayer(mid);
+                                        return (
+                                            <div key={mid} onClick={() => onSelectPlayer(mid)} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100 hover:bg-miku/5 cursor-pointer transition-colors">
+                                                <div className="flex items-center gap-4">
+                                                    <img src={player.avatar} className="w-10 h-10 rounded-full bg-slate-200" />
+                                                    <div><div className="font-bold text-slate-800 flex items-center gap-2">{player.name} {mid === selectedTeam.captainId && <span className="text-[10px] bg-yellow-400 text-white px-1.5 rounded uppercase">队长</span>}</div><div className="text-xs text-slate-400">Rank #{player.rank}</div></div>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const RadarChart = ({ stats, size = 200 }) => {
+            const labels = ["Aim", "Speed", "Tech", "Consis", "Stamina"];
+            const radius = size / 2.5; const center = size / 2; const angleStep = (Math.PI * 2) / 5;
+            const points = stats.map((val, i) => { const angle = i * angleStep - Math.PI / 2; return `${center + Math.cos(angle) * (radius * val / 100)},${center + Math.sin(angle) * (radius * val / 100)}`; }).join(" ");
+            return (
+                <svg width={size} height={size} className="overflow-visible">
+                    <path d={points} fill="rgba(57, 197, 187, 0.2)" stroke="#39C5BB" strokeWidth="2" />
+                    {labels.map((label, i) => { const angle = i * angleStep - Math.PI / 2; const x = center + Math.cos(angle) * (radius + 20); const y = center + Math.sin(angle) * (radius + 20); return <text key={i} x={x} y={y} textAnchor="middle" dominantBaseline="middle" className="text-[10px] font-bold fill-slate-500 uppercase">{label}</text>; })}
+                </svg>
+            );
+        };
+
+        const PlayerProfileModal = ({ playerId, onClose }) => {
+            const player = getPlayer(playerId);
+            if (!player.id) return null;
+            return (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-md animate-fade-in p-4" onClick={onClose}>
+                    <div className="bg-white w-full max-w-3xl rounded-3xl overflow-hidden shadow-2xl ring-1 ring-white/50 flex flex-col md:flex-row" onClick={e => e.stopPropagation()}>
+                        <div className="w-full md:w-1/3 bg-slate-50 p-8 flex flex-col items-center border-r border-slate-100">
+                            <img src={player.avatar} className="w-32 h-32 rounded-full shadow-xl mb-6 ring-4 ring-white" />
+                            <h2 className="text-2xl font-black text-slate-800 text-center">{player.name}</h2>
+                            <div className="text-sm font-bold text-slate-400 mt-1">#{player.rank.toLocaleString()}</div>
+                            <div className="mt-6 w-full"><RadarChart stats={player.stats} size={200} /></div>
+                        </div>
+                        <div className="flex-1 p-8 relative">
+                            <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-100"><X size={20}/></button>
+                            <h3 className="font-bold text-slate-400 uppercase text-xs tracking-wider mb-4">选手数据</h3>
+                            <div className="grid grid-cols-2 gap-4 mb-8">
+                                <div className="p-4 bg-slate-50 rounded-xl"><div className="text-xs text-slate-400 font-bold uppercase">PP</div><div className="text-xl font-black text-miku">{player.pp.toLocaleString()}</div></div>
+                                <div className="p-4 bg-slate-50 rounded-xl"><div className="text-xs text-slate-400 font-bold uppercase">Total Hits</div><div className="text-xl font-black text-slate-700">{player.tth}</div></div>
+                                <div className="p-4 bg-slate-50 rounded-xl"><div className="text-xs text-slate-400 font-bold uppercase">Best Performance</div><div className="text-xl font-black text-slate-700">{player.bp1}pp</div></div>
+                                <div className="p-4 bg-slate-50 rounded-xl"><div className="text-xs text-slate-400 font-bold uppercase">Tier</div><div className={`text-xl font-black ${getTierColor(player.tier).split(' ')[1]}`}>{player.tier}</div></div>
+                            </div>
+                            <h3 className="font-bold text-slate-400 uppercase text-xs tracking-wider mb-2">个人介绍</h3>
+                            <p className="text-slate-600 italic bg-slate-50 p-4 rounded-xl border border-slate-100">"{player.intro}"</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('cover');
+            const [selectedPlayerId, setSelectedPlayerId] = useState(null);
+            const renderContent = () => {
+                switch(activeTab) {
+                    case 'cover': return <HubView setActiveTab={setActiveTab} />;
+                    case 'registry': return <RegistryView onSelectPlayer={setSelectedPlayerId} />;
+                    case 'teams': return <TeamList onSelectPlayer={setSelectedPlayerId} />;
+                    case 'mappool': return <MappoolView />;
+                    case 'schedule': return <ScheduleView />;
+                    case 'stats': return <StatsView />;
+                    default: return null;
+                }
+            };
+            return (
+                <div className="flex min-h-screen">
+                    <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+                    <div className="flex-1 ml-72 relative z-10 flex flex-col">
+                         <header className="h-20 flex items-center justify-between px-8 sticky top-0 z-40 bg-white/50 backdrop-blur-md border-b border-white/40">
+                             <div className="flex items-center gap-2 text-sm"><span className="text-slate-400 font-medium">{CONFIG.name}</span><ChevronRight size={14} className="text-slate-300" /><span className="font-bold text-miku capitalize text-lg">{activeTab === 'cover' ? '主页' : activeTab === 'stats' ? '统计' : activeTab === 'registry' ? '选手列表' : activeTab === 'teams' ? '队伍' : activeTab === 'mappool' ? '图池' : '赛程'}</span></div>
+                             <div className="flex items-center gap-3 pl-6 border-l border-slate-200"><div className="w-10 h-10 rounded-full bg-gradient-to-tr from-miku to-blue-400 p-0.5 shadow-lg shadow-miku/20"><div className="w-full h-full rounded-full bg-white flex items-center justify-center text-miku font-bold text-xs">ZK</div></div></div>
+                        </header>
+                        <main className="flex-1 overflow-y-auto">{renderContent()}</main>
+                    </div>
+                    {selectedPlayerId && <PlayerProfileModal playerId={selectedPlayerId} onClose={() => setSelectedPlayerId(null)} />}
+                </div>
+            );
+        }
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
